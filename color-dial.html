@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Color dial</title>
+<style>
+:root{--bg:#f3f5f4;--surface:#ffffff;--ink:#17211e;--muted:#5d6b66;--line:#d5dcd9;--accent:#0f6b5c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--surface:#1b2420;--ink:#eaf0ed;--muted:#9baba5;--line:#33403b;--accent:#4fc3ad}}
+:root[data-theme="dark"]{--bg:#121816;--surface:#1b2420;--ink:#eaf0ed;--muted:#9baba5;--line:#33403b;--accent:#4fc3ad}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter","Helvetica Neue",Arial,sans-serif;line-height:1.5}
+main{max-width:720px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px;font-weight:650}
+p.sub{margin:0 0 20px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+canvas{display:block;width:100%;height:auto;border-radius:8px}
+.field{margin-top:16px}
+label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+input[type=text]{width:100%;padding:10px 12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;justify-content:space-between;color:var(--muted);font-size:.85rem}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+button{font:inherit;font-weight:600;padding:10px 16px;border-radius:8px;border:1px solid var(--accent);cursor:pointer;background:var(--accent);color:#fff}
+button.alt{background:transparent;color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#msg{margin-top:10px;min-height:1.4em;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Color dial</h1>
+<p class="sub">Set the arrow, add a title, then copy or download the image.</p>
+<div class="card"><canvas id="c" width="1200" height="760" aria-label="Dial preview"></canvas></div>
+<div class="field">
+<label for="t">Title</label>
+<input id="t" type="text" value="Risk level" maxlength="60">
+</div>
+<div class="field">
+<label for="a">Arrow position</label>
+<input id="a" type="range" min="0" max="180" step="1" value="90">
+<div class="row"><span>Left (0°)</span><span id="deg">90°</span><span>Right (180°)</span></div>
+</div>
+<div class="btns">
+<button id="copy">Copy PNG</button>
+<button id="dl" class="alt">Download PNG</button>
+</div>
+<div id="msg" role="status"></div>
+</main>
+<script>
+(function(){
+var cv=document.getElementById('c'),ctx=cv.getContext('2d');
+var t=document.getElementById('t'),a=document.getElementById('a'),deg=document.getElementById('deg'),msg=document.getElementById('msg');
+var W=cv.width,H=cv.height,cx=W/2,cy=600,R=480,r=300;
+function draw(){
+ctx.clearRect(0,0,W,H);
+ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+var title=t.value.trim();
+ctx.fillStyle='#17211e';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+ctx.font='600 64px Inter,Helvetica,Arial,sans-serif';
+ctx.fillText(title,cx,100,W-80);
+// color band: hue 120 (green) -> 0 (red) across 180 degrees
+var steps=180;
+for(var i=0;i<steps;i++){
+var a0=Math.PI+(i/steps)*Math.PI,a1=Math.PI+((i+1.6)/steps)*Math.PI;
+ctx.beginPath();ctx.arc(cx,cy,R,a0,Math.min(a1,2*Math.PI));ctx.arc(cx,cy,r,Math.min(a1,2*Math.PI),a0,true);ctx.closePath();
+ctx.fillStyle='hsl('+(120-120*(i/(steps-1)))+',75%,45%)';ctx.fill();
+}
+// arrow
+var ang=Math.PI+(+a.value/180)*Math.PI;
+var tipR=R-20,tx=cx+Math.cos(ang)*tipR,ty=cy+Math.sin(ang)*tipR;
+var px=-Math.sin(ang),py=Math.cos(ang),bx=cx+Math.cos(ang)*(tipR-70),by=cy+Math.sin(ang)*(tipR-70);
+ctx.fillStyle='#17211e';ctx.strokeStyle='#17211e';ctx.lineCap='round';ctx.lineWidth=18;
+ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(bx,by);ctx.stroke();
+ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(bx+px*34,by+py*34);ctx.lineTo(bx-px*34,by-py*34);ctx.closePath();ctx.fill();
+ctx.beginPath();ctx.arc(cx,cy,34,0,2*Math.PI);ctx.fill();
+ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(cx,cy,12,0,2*Math.PI);ctx.fill();
+deg.textContent=a.value+'°';
+}
+function blob(){return new Promise(function(res){cv.toBlob(res,'image/png')})}
+function say(s){msg.textContent=s}
+document.getElementById('dl').onclick=async function(){
+var b=await blob(),u=URL.createObjectURL(b),l=document.createElement('a');
+var name=(t.value.trim()||'color-dial').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()||'color-dial';
+l.href=u;l.download=name+'.png';document.body.appendChild(l);l.click();l.remove();
+setTimeout(function(){URL.revokeObjectURL(u)},1000);
+say('Download started. If nothing saved, try Copy PNG or open the page in a full browser tab.');
+};
+document.getElementById('copy').onclick=async function(){
+try{
+var b=await blob();
+await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);
+say('Copied to clipboard.');
+}catch(e){say('Copy was blocked in this view. Use Download PNG instead.')}
+};
+t.addEventListener('input',draw);a.addEventListener('input',draw);
+draw();
+})();
+</script>
+</body>
+</html>
